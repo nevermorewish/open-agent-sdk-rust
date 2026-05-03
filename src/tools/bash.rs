@@ -10,6 +10,8 @@ use crate::types::{Tool, ToolError, ToolInputSchema, ToolResult, ToolUseContext}
 const DEFAULT_TIMEOUT_MS: u64 = 120_000;
 const MAX_TIMEOUT_MS: u64 = 600_000;
 const MAX_OUTPUT_SIZE: usize = 100_000;
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 /// Destructive command patterns that should be flagged.
 const DESTRUCTIVE_PATTERNS: &[&str] = &[
@@ -175,6 +177,8 @@ async fn run_command(
         .current_dir(working_dir)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
     if !shell_path.is_empty() {
         cmd.env("PATH", shell_path);
     }
@@ -212,15 +216,6 @@ where
     F: FnMut(&str) -> bool,
 {
     if is_windows {
-        for candidate in ["bash.exe", "bash"] {
-            if has_program(candidate) {
-                return ShellRunner {
-                    program: candidate.to_string(),
-                    args: vec!["-c".to_string(), command.to_string()],
-                };
-            }
-        }
-
         for candidate in ["pwsh.exe", "pwsh", "powershell.exe", "powershell"] {
             if has_program(candidate) {
                 return ShellRunner {
